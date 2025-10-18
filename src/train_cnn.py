@@ -1,5 +1,7 @@
 # CNN training script for book classification
 import os
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,11 +16,32 @@ learning_rate = 1e-3
 image_size = 128
 num_classes = 2  # Book / Non-book if binary, else auto-detected
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
 print(f"Using device: {device}")
 
+# Deterministic seed for reproducibility
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+set_seed(42)
+
 # ===== 2. Data Preparation =====
-data_dir = os.path.join("..", "data", "books")
+# Resolve paths relative to this file, not current working directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.normpath(os.path.join(BASE_DIR, "..", "data", "books"))
+
+if not (os.path.isdir(os.path.join(data_dir, "train")) and os.path.isdir(os.path.join(data_dir, "valid"))):
+    raise FileNotFoundError(f"Expected 'train' and 'valid' directories under {data_dir}")
 
 transform = transforms.Compose([
     transforms.Resize((image_size, image_size)),
@@ -30,8 +53,18 @@ transform = transforms.Compose([
 train_dataset = datasets.ImageFolder(os.path.join(data_dir, "train"), transform=transform)
 val_dataset = datasets.ImageFolder(os.path.join(data_dir, "valid"), transform=transform)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+# Ensure class mapping is consistent between splits
+if train_dataset.classes != val_dataset.classes:
+    raise ValueError(f"Class mismatch between train {train_dataset.classes} and valid {val_dataset.classes}")
+
+if len(train_dataset) == 0 or len(val_dataset) == 0:
+    raise ValueError("Empty dataset detected. Ensure images exist under train/ and valid/ subfolders.")
+
+num_workers = 0  # Safe default across platforms; increase if desired
+pin_memory = device.type == "cuda"
+
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory)
 
 print(f"Train samples: {len(train_dataset)} | Val samples: {len(val_dataset)}")
 
@@ -60,6 +93,7 @@ class BookCNN(nn.Module):
 num_classes = len(train_dataset.classes)
 model = BookCNN(num_classes).to(device)
 print("Classes:", train_dataset.classes)
+print(f"Samples -> train: {len(train_dataset)} | valid: {len(val_dataset)}")
 
 # ===== 4. Loss & Optimizer =====
 criterion = nn.CrossEntropyLoss()
@@ -98,6 +132,8 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs} | Loss: {epoch_loss:.4f} | Val Acc: {val_acc:.4f}")
 
 # ===== 6. Save Model =====
-os.makedirs("../models", exist_ok=True)
-torch.save(model.state_dict(), "../models/book_cnn.pth")
-print("✅ Model saved to models/book_cnn.pth")
+models_dir = os.path.normpath(os.path.join(BASE_DIR, "..", "models"))
+os.makedirs(models_dir, exist_ok=True)
+save_path = os.path.join(models_dir, "book_cnn.pth")
+torch.save(model.state_dict(), save_path)
+print(f"✅ Model saved to {save_path}")
