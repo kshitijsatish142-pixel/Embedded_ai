@@ -1,0 +1,16 @@
+# Lightweight requirements for Raspberry Pi deployment
+# Install with: pip install -r requirements_pi.txt
+
+# PyTorch CPU-only version for Raspberry Pi
+# For Pi 4 (64-bit OS):
+torch>=2.0.0
+torchvision>=0.15.0
+
+# OpenCV for camera
+opencv-python>=4.8.0
+
+# Image processing
+Pillow>=9.5.0
+
+# Numpy
+numpy>=1.24.0
