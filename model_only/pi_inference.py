@@ -247,15 +247,16 @@ class ObstacleDetector:
             print(f"📊 {summary}")
 
 
-def run_camera_detection(model_dir: str | Path, camera_index: int = 0):
+def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidence: float = 0.5):
     """
     Run real-time obstacle detection from camera.
     
     Args:
         model_dir: Path to model directory
         camera_index: Camera device index (0 for Pi Camera, 1+ for USB)
+        confidence: Confidence threshold (0.0-1.0)
     """
-    detector = ObstacleDetector(model_dir)
+    detector = ObstacleDetector(model_dir, confidence_threshold=confidence)
     
     # Initialize camera
     # For Pi Camera v2, use: camera = picamera2.Picamera2()
@@ -316,8 +317,8 @@ def main():
     parser.add_argument(
         "--model-dir",
         type=Path,
-        required=True,
-        help="Directory containing model files",
+        default=Path("."),
+        help="Directory containing model files (default: current directory)",
     )
     parser.add_argument(
         "--camera",
@@ -334,7 +335,7 @@ def main():
     
     args = parser.parse_args()
     
-    run_camera_detection(args.model_dir, args.camera)
+    run_camera_detection(args.model_dir, args.camera, args.confidence)
 
 
 if __name__ == "__main__":

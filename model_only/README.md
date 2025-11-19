@@ -11,7 +11,12 @@ Plug-and-play obstacle detection model for blind navigation.
 
 2. **Run detection:**
    ```bash
-   python3 pi_inference.py .
+   python3 pi_inference.py
+   ```
+   
+   Or specify model directory:
+   ```bash
+   python3 pi_inference.py --model-dir /path/to/model
    ```
 
 3. **Use in your code:**
