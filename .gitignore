@@ -40,3 +40,6 @@ wandb/
 # Keep pi_package but ignore large model files there
 blind_navigation/models/obstacle_detector/*.pt
 blind_navigation/models/pi_package/model_weights.pt
+
+# Exception: Include model_only weights (needed for deployment)
+!model_only/model_weights.pt
