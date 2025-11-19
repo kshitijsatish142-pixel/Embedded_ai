@@ -1,0 +1,11 @@
+{
+  "classes": [
+    "person",
+    "vehicle"
+  ],
+  "input_size": [
+    640,
+    640
+  ],
+  "num_classes": 2
+}
