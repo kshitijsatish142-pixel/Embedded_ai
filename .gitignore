@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+
+# Model files (large)
+*.pt
+*.pth
+*.h5
+*.ckpt
+
+# Data
+train2017/
+val2017/
+annotations/
+*.zip
+dataset/
+coco_dataset/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+runs/
+wandb/
+
+# Keep pi_package but ignore large model files there
+blind_navigation/models/obstacle_detector/*.pt
+blind_navigation/models/pi_package/model_weights.pt
