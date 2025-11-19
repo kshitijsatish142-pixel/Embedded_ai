@@ -259,13 +259,29 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
         confidence: Confidence threshold (0.0-1.0)
         use_pi_camera: If True, use Pi Camera Module (rpicam/libcamera), else use USB camera (OpenCV)
     """
-    from camera import Camera
+    import sys
+    from pathlib import Path
     
-    detector = ObstacleDetector(model_dir, confidence_threshold=confidence)
+    # Add current directory to path for camera import
+    current_dir = Path(__file__).parent
+    if str(current_dir) not in sys.path:
+        sys.path.insert(0, str(current_dir))
     
-    # Initialize camera using rpicam/libcamera
     try:
-        camera = Camera(use_pi_camera=use_pi_camera, camera_index=camera_index, resolution=(640, 480))
+        from camera import Camera
+    except ImportError:
+        print("❌ camera.py not found. Please run: git pull origin main")
+        return
+    
+    # Initialize camera using rpicam/libcamera (with detection built-in)
+    try:
+        camera = Camera(
+            use_pi_camera=use_pi_camera,
+            camera_index=camera_index,
+            resolution=(640, 480),
+            model_dir=model_dir,
+            confidence_threshold=confidence
+        )
     except Exception as e:
         print(f"❌ Camera initialization error: {e}")
         return
@@ -275,16 +291,14 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
     
     try:
         while True:
-            result = camera.read()
+            # Use camera's built-in read_and_detect for convenience
+            result = camera.read_and_detect()
             if result is None:
                 break
             
-            ret, frame = result
+            ret, frame, detections = result
             if not ret:
                 break
-            
-            # Detect obstacles
-            detections = detector.detect(frame)
             
             # Draw detections on frame
             for det in detections:
@@ -295,7 +309,7 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
                 cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
             # Announce critical detections
-            detector.announce(detections, audio_enabled=False)
+            camera.announce(detections, audio_enabled=False)
             
             # Calculate FPS
             fps_counter += 1
