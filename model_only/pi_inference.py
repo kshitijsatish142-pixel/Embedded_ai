@@ -257,56 +257,31 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
         model_dir: Path to model directory
         camera_index: Camera device index (for USB cameras, ignored for Pi Camera)
         confidence: Confidence threshold (0.0-1.0)
-        use_pi_camera: If True, use Pi Camera Module (picamera2), else use USB camera (OpenCV)
+        use_pi_camera: If True, use Pi Camera Module (rpicam/libcamera), else use USB camera (OpenCV)
     """
+    from camera import Camera
+    
     detector = ObstacleDetector(model_dir, confidence_threshold=confidence)
     
-    # Initialize camera
-    camera = None
-    pi_camera = None
-    
-    if use_pi_camera:
-        try:
-            from picamera2 import Picamera2
-            pi_camera = Picamera2()
-            # Configure camera for preview
-            preview_config = pi_camera.create_preview_configuration(main={"size": (640, 480)})
-            pi_camera.configure(preview_config)
-            pi_camera.start()
-            print("📹 Pi Camera started. Press 'q' to quit.")
-        except ImportError:
-            print("⚠️  picamera2 not found.")
-            print("   Install with: sudo apt install -y python3-picamera2")
-            print("   (Do NOT use pip install - it requires system dependencies)")
-            print("📹 Falling back to USB camera...")
-            use_pi_camera = False
-        except Exception as e:
-            print(f"⚠️  Pi Camera error: {e}")
-            print("📹 Falling back to USB camera...")
-            use_pi_camera = False
-    
-    if not use_pi_camera:
-        camera = cv2.VideoCapture(camera_index)
-        if not camera.isOpened():
-            print(f"❌ Could not open USB camera {camera_index}")
-            return
-        print("📹 USB Camera started. Press 'q' to quit.")
+    # Initialize camera using rpicam/libcamera
+    try:
+        camera = Camera(use_pi_camera=use_pi_camera, camera_index=camera_index, resolution=(640, 480))
+    except Exception as e:
+        print(f"❌ Camera initialization error: {e}")
+        return
     
     fps_counter = 0
     fps_start_time = time.time()
     
     try:
         while True:
-            if use_pi_camera and pi_camera:
-                # Capture from Pi Camera
-                frame = pi_camera.capture_array()
-                # Convert RGB to BGR for OpenCV
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            else:
-                # Capture from USB camera
-                ret, frame = camera.read()
-                if not ret:
-                    break
+            result = camera.read()
+            if result is None:
+                break
+            
+            ret, frame = result
+            if not ret:
+                break
             
             # Detect obstacles
             detections = detector.detect(frame)
@@ -336,10 +311,7 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
                 break
     
     finally:
-        if use_pi_camera and pi_camera:
-            pi_camera.stop()
-        elif camera:
-            camera.release()
+        camera.release()
         cv2.destroyAllWindows()
 
 
