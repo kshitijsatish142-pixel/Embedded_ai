@@ -275,7 +275,9 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
             pi_camera.start()
             print("📹 Pi Camera started. Press 'q' to quit.")
         except ImportError:
-            print("⚠️  picamera2 not found. Install with: pip install picamera2")
+            print("⚠️  picamera2 not found.")
+            print("   Install with: sudo apt install -y python3-picamera2")
+            print("   (Do NOT use pip install - it requires system dependencies)")
             print("📹 Falling back to USB camera...")
             use_pi_camera = False
         except Exception as e:
