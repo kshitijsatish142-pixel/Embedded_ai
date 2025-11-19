@@ -249,36 +249,62 @@ class ObstacleDetector:
             print(f"📊 {summary}")
 
 
-def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidence: float = 0.5):
+def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidence: float = 0.5, use_pi_camera: bool = True):
     """
     Run real-time obstacle detection from camera.
     
     Args:
         model_dir: Path to model directory
-        camera_index: Camera device index (0 for Pi Camera, 1+ for USB)
+        camera_index: Camera device index (for USB cameras, ignored for Pi Camera)
         confidence: Confidence threshold (0.0-1.0)
+        use_pi_camera: If True, use Pi Camera Module (picamera2), else use USB camera (OpenCV)
     """
     detector = ObstacleDetector(model_dir, confidence_threshold=confidence)
     
     # Initialize camera
-    # For Pi Camera v2, use: camera = picamera2.Picamera2()
-    # For USB camera, use: camera = cv2.VideoCapture(camera_index)
-    camera = cv2.VideoCapture(camera_index)
+    camera = None
+    pi_camera = None
     
-    if not camera.isOpened():
-        print(f"❌ Could not open camera {camera_index}")
-        return
+    if use_pi_camera:
+        try:
+            from picamera2 import Picamera2
+            pi_camera = Picamera2()
+            # Configure camera for preview
+            preview_config = pi_camera.create_preview_configuration(main={"size": (640, 480)})
+            pi_camera.configure(preview_config)
+            pi_camera.start()
+            print("📹 Pi Camera started. Press 'q' to quit.")
+        except ImportError:
+            print("⚠️  picamera2 not found. Install with: pip install picamera2")
+            print("📹 Falling back to USB camera...")
+            use_pi_camera = False
+        except Exception as e:
+            print(f"⚠️  Pi Camera error: {e}")
+            print("📹 Falling back to USB camera...")
+            use_pi_camera = False
     
-    print("📹 Camera started. Press 'q' to quit.")
+    if not use_pi_camera:
+        camera = cv2.VideoCapture(camera_index)
+        if not camera.isOpened():
+            print(f"❌ Could not open USB camera {camera_index}")
+            return
+        print("📹 USB Camera started. Press 'q' to quit.")
     
     fps_counter = 0
     fps_start_time = time.time()
     
     try:
         while True:
-            ret, frame = camera.read()
-            if not ret:
-                break
+            if use_pi_camera and pi_camera:
+                # Capture from Pi Camera
+                frame = pi_camera.capture_array()
+                # Convert RGB to BGR for OpenCV
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            else:
+                # Capture from USB camera
+                ret, frame = camera.read()
+                if not ret:
+                    break
             
             # Detect obstacles
             detections = detector.detect(frame)
@@ -308,7 +334,10 @@ def run_camera_detection(model_dir: str | Path, camera_index: int = 0, confidenc
                 break
     
     finally:
-        camera.release()
+        if use_pi_camera and pi_camera:
+            pi_camera.stop()
+        elif camera:
+            camera.release()
         cv2.destroyAllWindows()
 
 
@@ -326,7 +355,7 @@ def main():
         "--camera",
         type=int,
         default=0,
-        help="Camera index (0 for Pi Camera, 1+ for USB)",
+        help="Camera index (for USB cameras only)",
     )
     parser.add_argument(
         "--confidence",
@@ -334,10 +363,15 @@ def main():
         default=0.5,
         help="Confidence threshold (0.0-1.0)",
     )
+    parser.add_argument(
+        "--usb-camera",
+        action="store_true",
+        help="Use USB camera instead of Pi Camera Module",
+    )
     
     args = parser.parse_args()
     
-    run_camera_detection(args.model_dir, args.camera, args.confidence)
+    run_camera_detection(args.model_dir, args.camera, args.confidence, use_pi_camera=not args.usb_camera)
 
 
 if __name__ == "__main__":
