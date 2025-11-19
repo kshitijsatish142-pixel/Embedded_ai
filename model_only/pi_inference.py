@@ -99,13 +99,15 @@ class ObstacleDetector:
         self.idx_to_class = {idx: cls for cls, idx in self.class_to_idx.items()}
         self.input_size = tuple(self.metadata["input_size"])
         
-        # Load model
-        model_path = self.model_dir / "best_model.pt"
+        # Load model (check multiple possible filenames)
+        model_path = self.model_dir / "model_weights.pt"
+        if not model_path.exists():
+            model_path = self.model_dir / "best_model.pt"
         if not model_path.exists():
             model_path = self.model_dir / "final_model.pt"
         
         if not model_path.exists():
-            raise FileNotFoundError(f"Model weights not found in {self.model_dir}")
+            raise FileNotFoundError(f"Model weights not found in {self.model_dir}. Expected: model_weights.pt, best_model.pt, or final_model.pt")
         
         self.model = LightweightObstacleDetector(
             num_classes=len(self.classes),
